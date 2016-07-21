@@ -8,13 +8,45 @@ import (
 	"path"
 	"time"
 
+	"testing"
+
 	etcd "github.com/coreos/etcd/clientv3"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	"github.com/thrawn01/args"
+	"github.com/thrawn01/args-backends"
 	"golang.org/x/net/context"
 )
+
+func TestEtcd(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "EtcdBackend")
+}
+
+type TestLogger struct {
+	result string
+}
+
+func NewTestLogger() *TestLogger {
+	return &TestLogger{""}
+}
+
+func (self *TestLogger) Print(stuff ...interface{}) {
+	self.result = self.result + fmt.Sprint(stuff...) + "|"
+}
+
+func (self *TestLogger) Printf(format string, stuff ...interface{}) {
+	self.result = self.result + fmt.Sprintf(format, stuff...) + "|"
+}
+
+func (self *TestLogger) Println(stuff ...interface{}) {
+	self.result = self.result + fmt.Sprintln(stuff...) + "|"
+}
+
+func (self *TestLogger) GetEntry() string {
+	return self.result
+}
 
 func okToTestEtcd() {
 	if os.Getenv("ARGS_DOCKER_HOST") == "" {
@@ -60,53 +92,35 @@ func etcdPut(client *etcd.Client, root, key, value string) {
 	}
 }
 
-var _ = Describe("ArgParser", func() {
+var _ = Describe("EtcdBackend", func() {
 	var client *etcd.Client
+	var backend args.Backend
 	var etcdRoot string
 	var log *TestLogger
 
 	BeforeEach(func() {
-		client = etcdClientFactory()
 		etcdRoot = newRootPath()
+		client = etcdClientFactory()
+		backend = backends.NewEtcdBackend(client, etcdRoot)
 		log = NewTestLogger()
 	})
 
 	AfterEach(func() {
-		if client != nil {
-			client.Close()
+		if backend != nil {
+			backend.Close()
 		}
 	})
 
-	Describe("FromEtcd()", func() {
-		It("Should default to /please-set-a-name if no args.Name() or args.EtcdPath() specified", func() {
+	Describe("FromBackend()", func() {
+		It("Should fetch 'bind' value from /EtcdRoot/bind", func() {
 			okToTestEtcd()
 
 			parser := args.NewParser()
 			parser.SetLog(log)
 			parser.AddConfig("--bind")
-			_, err := parser.FromEtcd(client)
-			Expect(err).To(BeNil())
-			Expect(parser.EtcdRoot).To(Equal("/please-set-a-name"))
-		})
-		It("Should use args.Name() if args.EtcdPath() not specified", func() {
-			okToTestEtcd()
 
-			parser := args.NewParser(args.Name("my-name"))
-			parser.SetLog(log)
-			parser.AddConfig("--bind")
-			_, err := parser.FromEtcd(client)
-			Expect(err).To(BeNil())
-			Expect(parser.EtcdRoot).To(Equal("/my-name"))
-		})
-		It("Should fetch 'bind' value from /EtcdRoot/bind", func() {
-			okToTestEtcd()
-
-			parser := args.NewParser(args.EtcdPath(etcdRoot))
-			parser.SetLog(log)
-			parser.AddConfig("--bind")
-
-			etcdPut(client, parser.EtcdRoot, "/DEFAULT/bind", "thrawn01.org:3366")
-			opts, err := parser.FromEtcd(client)
+			etcdPut(client, etcdRoot, "/DEFAULT/bind", "thrawn01.org:3366")
+			opts, err := parser.FromBackend(backend)
 			Expect(err).To(BeNil())
 			Expect(log.GetEntry()).To(Equal(""))
 			Expect(opts.String("bind")).To(Equal("thrawn01.org:3366"))
@@ -114,23 +128,23 @@ var _ = Describe("ArgParser", func() {
 		It("Should fetch 'endpoints' values from /EtcdRoot/endpoints", func() {
 			okToTestEtcd()
 
-			parser := args.NewParser(args.EtcdPath(etcdRoot))
+			parser := args.NewParser()
 			parser.SetLog(log)
 			parser.AddConfigGroup("endpoints")
 
-			etcdPut(client, parser.EtcdRoot, "/endpoints/endpoint1", "http://endpoint1.com:3366")
+			etcdPut(client, etcdRoot, "/endpoints/endpoint1", "http://endpoint1.com:3366")
 
-			opts, err := parser.FromEtcd(client)
+			opts, err := parser.FromBackend(backend)
 			Expect(err).To(BeNil())
 			Expect(log.GetEntry()).To(Equal(""))
 			Expect(opts.Group("endpoints").ToMap()).To(Equal(map[string]interface{}{
 				"endpoint1": "http://endpoint1.com:3366",
 			}))
 
-			etcdPut(client, parser.EtcdRoot, "/endpoints/endpoint2",
+			etcdPut(client, etcdRoot, "/endpoints/endpoint2",
 				"{ \"host\": \"endpoint2\", \"port\": \"3366\" }")
 
-			opts, err = parser.FromEtcd(client)
+			opts, err = parser.FromBackend(backend)
 			Expect(err).To(BeNil())
 			Expect(log.GetEntry()).To(Equal(""))
 			Expect(opts.Group("endpoints").ToMap()).To(Equal(map[string]interface{}{
@@ -141,12 +155,12 @@ var _ = Describe("ArgParser", func() {
 		It("Should be ok if config option not found in etcd store", func() {
 			okToTestEtcd()
 
-			parser := args.NewParser(args.EtcdPath(etcdRoot))
+			parser := args.NewParser()
 			parser.SetLog(log)
 			parser.AddConfig("--bind")
 
-			etcdPut(client, parser.EtcdRoot, "/not-found", "foo")
-			opts, err := parser.FromEtcd(client)
+			etcdPut(client, etcdRoot, "/not-found", "foo")
+			opts, err := parser.FromBackend(backend)
 			Expect(err).To(BeNil())
 			Expect(log.GetEntry()).To(ContainSubstring("not found"))
 			Expect(opts.String("bind")).To(Equal(""))
@@ -156,13 +170,13 @@ var _ = Describe("ArgParser", func() {
 		It("Should watch /EtcdRoot/endpoints for new values", func() {
 			okToTestEtcd()
 
-			parser := args.NewParser(args.EtcdPath(etcdRoot))
+			parser := args.NewParser()
 			parser.SetLog(log)
 			parser.AddConfigGroup("endpoints")
 
-			etcdPut(client, parser.EtcdRoot, "/endpoints/endpoint1", "http://endpoint1.com:3366")
+			etcdPut(client, etcdRoot, "/endpoints/endpoint1", "http://endpoint1.com:3366")
 
-			_, err := parser.FromEtcd(client)
+			_, err := parser.FromBackend(backend)
 			opts := parser.GetOpts()
 			Expect(err).To(BeNil())
 			Expect(log.GetEntry()).To(Equal(""))
@@ -172,8 +186,7 @@ var _ = Describe("ArgParser", func() {
 
 			done := make(chan struct{})
 
-			// TODO: change this func to accept an Update{} object
-			cancelWatch := parser.WatchEtcd(client, func(event *args.ChangeEvent, err error) {
+			cancelWatch := parser.Watch(backend, func(event *args.ChangeEvent, err error) {
 				// Always check for errors
 				if err != nil {
 					fmt.Printf("Watch Error - %s\n", err.Error())
@@ -185,7 +198,7 @@ var _ = Describe("ArgParser", func() {
 				close(done)
 			})
 			// Add a new endpoint
-			etcdPut(client, parser.EtcdRoot, "/endpoints/endpoint2", "http://endpoint2.com:3366")
+			etcdPut(client, etcdRoot, "/endpoints/endpoint2", "http://endpoint2.com:3366")
 			// Wait until the change event is handled
 			<-done
 			// Stop the watch
