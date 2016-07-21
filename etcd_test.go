@@ -211,7 +211,6 @@ var _ = Describe("EtcdBackend", func() {
 				"endpoint1": "http://endpoint1.com:3366",
 				"endpoint2": "http://endpoint2.com:3366",
 			}))
-
 		})
 		// TODO
 		It("Should continue to attempt to reconnect if the etcd client disconnects", func() {})

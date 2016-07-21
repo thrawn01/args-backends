@@ -89,7 +89,9 @@ func (self *EtcdBackend) Watch(ctx context.Context, key string) <-chan *args.Cha
 }
 
 func (self *EtcdBackend) Close() {
-	close(self.close)
+	if self.close != nil {
+		close(self.close)
+	}
 }
 
 func (self *EtcdBackend) GetRootKey() string {
@@ -98,7 +100,8 @@ func (self *EtcdBackend) GetRootKey() string {
 
 func NewChangeEvent(event *etcd.Event) *args.ChangeEvent {
 	return &args.ChangeEvent{
-		Key:     path.Base(string(event.Kv.Key)),
+		KeyName: path.Base(string(event.Kv.Key)),
+		Key:     string(event.Kv.Key),
 		Value:   event.Kv.Value,
 		Deleted: event.Type.String() == "DELETE",
 		Err:     nil,
