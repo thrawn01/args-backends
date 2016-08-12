@@ -63,7 +63,7 @@ examples: bin/etcd-endpoints-service bin/etcd-endpoints-client bin/etcd-config-s
 clean:
 	rm bin/*
 
-travis-ci: get-deps start-containers
+travis-ci: get-deps go-deps start-containers
 	go get -u github.com/mattn/goveralls
 	go get -u golang.org/x/tools/cmd/cover
 	goveralls -service=travis-ci
@@ -71,9 +71,14 @@ travis-ci: get-deps start-containers
 $(GLIDE):
 	go get -u github.com/Masterminds/glide
 
-glide-deps: $(GLIDE)
-	$(GLIDE) install
+go-deps:
 	go get golang.org/x/net/context
+	go get github.com/onsi/ginkgo
+	go get github.com/onsi/gomega
+	go get github.com/pborman/uuid
 
-get-deps:
+glide-deps: $(GLIDE) go-deps
+	$(GLIDE) install
+
+get-deps: go-deps
 	go get $(go list ./... | grep -v /examples)
