@@ -1,0 +1,12 @@
+package: github.com/thrawn01/args-backends
+import:
+    - package: github.com/coreos/etcd
+      version: ^3.0.4
+      subpackages:
+      - clientv3
+    - package: github.com/pkg/errors
+      version: ^0.7.0
+    - package: github.com/thrawn01/args
+
+ignore:
+    - golang.org/x/net

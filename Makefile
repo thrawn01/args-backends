@@ -68,8 +68,8 @@ travis-ci: get-deps start-containers
 	go get -u golang.org/x/tools/cmd/cover
 	goveralls -service=travis-ci
 
-$(GLIDE):
-	go get -u github.com/Masterminds/glide
-
-get-deps: $(GLIDE)
+get-glide-deps:
 	$(GLIDE) install
+
+get-deps:
+	go get ./...
