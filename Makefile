@@ -8,7 +8,7 @@ PATH := $(GOPATH)/bin:$(PATH)
 export $(PATH)
 
 export ARGS_DOCKER_HOST=localhost
-DOCKER_MACHINE_IP=$(shell docker-machine ip default)
+DOCKER_MACHINE_IP=$(shell docker-machine ip default 2> /dev/null)
 ifneq ($(DOCKER_MACHINE_IP),)
 	ARGS_DOCKER_HOST=$(DOCKER_MACHINE_IP)
 endif
@@ -20,7 +20,7 @@ start-containers:
 	@if [ $(shell docker ps -a | grep -ci args-etcd) -eq 0 ]; then \
 		echo Starting Docker Container args-etcd; \
 		docker run -d -v /usr/share/ca-certificates/:/etc/ssl/certs -p 4001:4001 -p 2380:2380 -p 2379:2379 \
-		--name args-etcd $(ETCD_DOCKER_IMAGE) \
+		--name args-etcd $(ETCD_DOCKER_IMAGE) /usr/local/bin/etcd \
 		--name etcd0 \
 		--advertise-client-urls http://${ARGS_DOCKER_HOST}:2379,http://${ARGS_DOCKER_HOST}:4001 \
 		--listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
@@ -68,8 +68,12 @@ travis-ci: get-deps start-containers
 	go get -u golang.org/x/tools/cmd/cover
 	goveralls -service=travis-ci
 
-get-glide-deps:
+$(GLIDE):
+	go get -u github.com/Masterminds/glide
+
+glide-deps: $(GLIDE)
 	$(GLIDE) install
+	go get golang.org/x/net/context
 
 get-deps:
 	go get $(go list ./... | grep -v /examples)

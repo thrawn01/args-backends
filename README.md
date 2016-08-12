@@ -1,5 +1,5 @@
-[![Coverage Status](https://img.shields.io/coveralls/thrawn01/args-backends.svg)](https://coveralls.io/github/thrawn01/args)
-[![Build Status](https://img.shields.io/travis/thrawn01/args-backends/master.svg)](https://travis-ci.org/thrawn01/args)
+[![Coverage Status](https://img.shields.io/coveralls/thrawn01/args-backends.svg)](https://coveralls.io/github/thrawn01/args-backends)
+[![Build Status](https://img.shields.io/travis/thrawn01/args-backends/master.svg)](https://travis-ci.org/thrawn01/args-backends)
 
 **NOTE: This is alpha software, the api will continue to evolve**
 
@@ -9,23 +9,65 @@ This repo provides the key=value storage backends for use with
 
 ## Installation
 ```
-go get github.com/thrawn01/args-backends
+$ go get github.com/thrawn01/args-backends
+```
+
+## Usage
+```go
+    import (
+    	etcd "github.com/coreos/etcd/clientv3"
+    	"github.com/thrawn01/args"
+    	"github.com/thrawn01/args-backends"
+    )
+
+	parser := args.NewParser()
+	parser.AddOption("--etcd-endpoints").Alias("-e").Default("localhost:2379").
+		Help("A Comma Separated list of etcd server endpoints")
+
+	client, err := etcd.New(etcd.Config{
+		Endpoints:   opts.StringSlice("etcd-endpoints"),
+		DialTimeout: 5 * time.Second,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	backend := backends.NewEtcdBackend(client, "/etcd-root")
+
+	// Read all the args defined config values from etcd
+	opts, err = parser.FromBackend(backend)
+	if err != nil {
+		fmt.Printf("Etcd error - %s\n", err.Error())
+	}
+
+	// Watch etcd for any configuration changes
+	cancelWatch := parser.Watch(backend, func(event *args.ChangeEvent, err error) {
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+		fmt.Printf("Change Event - %+v\n", event)
+		// This takes a ChangeEvent and update the opts with the latest changes
+		parser.Apply(opts.FromChangeEvent(event))
+	})
 ```
 
 ## Development Guide
 Fetch the source
 ```
-go get -d github.com/thrawn01/args-backends
-cd $GOPATH/src/github.com/thrawn01/args-backends
+$ mkdir -p $GOPATH/src/github.com/thrawn01
+$ cd $GOPATH/src/github.com/thrawn01
+$ git clone git@github.com:thrawn01/args-backends.git
 ```
 
 Install glide and fetch the dependencies via glide
 ```
-make get-deps
+$ make glide-deps
 ```
 
-Run make to build the example and run the tests
+Run make to build the examples and run the tests
 ```
-make test
+$ make test
+$ make
 ```
 
