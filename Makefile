@@ -72,4 +72,4 @@ get-glide-deps:
 	$(GLIDE) install
 
 get-deps:
-	go get ./...
+	go get $(go list ./... | grep -v /examples)
