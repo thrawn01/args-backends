@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -35,11 +34,7 @@ func main() {
 		Help("a list of nginx endpoints")
 
 	// Parse the command line arguments
-	opts, err := parser.ParseArgs(nil)
-	if err != nil {
-		log.Fatal(err.Error())
-		os.Exit(-1)
-	}
+	opts := parser.ParseArgsSimple(nil)
 
 	// Simple handler that returns a list of endpoints to the caller
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
@@ -70,16 +65,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	etcdStore := backends.NewEtcdBackend(client, "/etcd-endpoints-service")
+	backend := backends.NewEtcdBackend(client, "/etcd-endpoints-service")
 
-	// Read the config values like 'api-key' or 'nginx-endpoints' from etcd
-	opts, err = parser.FromStore(etcdStore)
+	// Read all the available config values like 'api-key' or 'nginx-endpoints' from etcd
+	opts, err = parser.FromBackend(backend)
 	if err != nil {
 		fmt.Printf("Etcd error - %s\n", err.Error())
 	}
 
 	// Watch etcd for any configuration changes
-	cancelWatch := etcdStore.Watch(client, func(event args.ChangeEvent, err error) {
+	cancelWatch := parser.Watch(backend, func(event *args.ChangeEvent, err error) {
 		if err != nil {
 			fmt.Println(err.Error())
 			return

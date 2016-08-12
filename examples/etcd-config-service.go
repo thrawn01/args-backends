@@ -10,12 +10,12 @@ import (
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/thrawn01/args"
+	"github.com/thrawn01/args-backends"
 )
 
 func main() {
 	parser := args.NewParser(args.Name("etcd-config-service"),
-		args.EtcdPath("etcd-config"),
-		args.Desc("Example versioned config service"))
+		args.Desc("Example of a versioned config service"))
 
 	// A Comma Separated list of etcd endpoints
 	parser.AddOption("--etcd-endpoints").Alias("-e").Default("dockerhost:2379").
@@ -67,15 +67,17 @@ func main() {
 		log.Fatal(err)
 	}
 
+	backend := backends.NewEtcdBackend(client, "/etcd-config-service")
+
 	// Read the config values from etcd
-	opts, err = parser.FromEtcd(client)
+	opts, err = parser.FromBackend(backend)
 	if err != nil {
 		fmt.Printf("Etcd error - %s\n", err.Error())
 	}
 
 	// Watch etcd for any configuration changes
 	stagedOpts := parser.NewOptions()
-	cancelWatch := parser.WatchEtcd(client, func(event *args.ChangeEvent, err error) {
+	cancelWatch := parser.Watch(backend, func(event *args.ChangeEvent, err error) {
 		if err != nil {
 			fmt.Println(err.Error())
 			return
