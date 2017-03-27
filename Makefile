@@ -1,4 +1,4 @@
-.PHONY: start-containers stop-containers test examples all
+.PHONY: start-containers stop-containers test examples all glide-deps
 .DEFAULT_GOAL := all
 
 # GO
@@ -42,30 +42,20 @@ stop-containers:
 
 test: start-containers
 	@echo Running Tests
-	@go test .
+	export ETCDCTL_ENDPOINTS=${ARGS_DOCKER_HOST}:2379
+	export ETCDCTL_API=3
+	go test . -v
 
-bin/etcd-config-service: examples/etcd-config-service.go
-	go build -o bin/etcd-config-service examples/etcd-config-service.go
-
-bin/etcd-config-client: examples/etcd-config-client.go
-	go build -o bin/etcd-config-client examples/etcd-config-client.go
-
-bin/etcd-endpoints-service: examples/etcd-endpoints-service.go
-	go build -o bin/etcd-endpoints-service examples/etcd-endpoints-service.go
-
-bin/etcd-endpoints-client: examples/etcd-endpoints-client.go
-	go build -o bin/etcd-endpoints-client examples/etcd-endpoints-client.go
 
 all: examples
 
-examples: bin/etcd-endpoints-service bin/etcd-endpoints-client bin/etcd-config-service bin/etcd-config-client
+examples:
+	go install $(go list ./... | grep -v vendor)
 
-clean:
-	rm bin/*
-
-travis-ci: get-deps go-deps start-containers
+travis-ci: glide-deps start-containers
 	go get -u github.com/mattn/goveralls
 	go get -u golang.org/x/tools/cmd/cover
+	go get -u golang.org/x/text/secure/bidirule
 	goveralls -service=travis-ci
 
 $(GLIDE):
@@ -80,5 +70,3 @@ go-deps:
 glide-deps: $(GLIDE) go-deps
 	$(GLIDE) install
 
-get-deps: go-deps
-	go get $(go list ./... | grep -v /examples)
