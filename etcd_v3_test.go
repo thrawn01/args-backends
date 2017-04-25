@@ -1,4 +1,4 @@
-package backends_test
+package argsetcd_test
 
 import (
 	"bytes"
@@ -15,13 +15,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	"github.com/thrawn01/args"
-	"github.com/thrawn01/args-backends"
+	"github.com/thrawn01/args-etcd"
 	"golang.org/x/net/context"
 )
 
-func TestEtcd(t *testing.T) {
+func TestEtcdV3(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "EtcdBackend")
+	RunSpecs(t, "EtcdV3Backend")
 }
 
 type TestLogger struct {
@@ -49,8 +49,11 @@ func (self *TestLogger) GetEntry() string {
 }
 
 func okToTestEtcd() {
-	if os.Getenv("ARGS_DOCKER_HOST") == "" {
-		Skip("ARGS_DOCKER_HOST not set, skipped....")
+	if os.Getenv("ETCDCTL_ENDPOINTS") == "" {
+		Skip("ETCDCTL_ENDPOINTS not set, skipped....")
+	}
+	if os.Getenv("ETCDCTL_API") != "3" {
+		Skip("ETCDCTL_API wrong version number, skipped....")
 	}
 }
 
@@ -64,18 +67,16 @@ func newRootPath() string {
 }
 
 func etcdClientFactory() *etcd.Client {
-	if os.Getenv("ARGS_DOCKER_HOST") == "" {
+	if os.Getenv("ETCDCTL_ENDPOINTS") == "" {
 		return nil
 	}
 
 	client, err := etcd.New(etcd.Config{
-		Endpoints: []string{
-			fmt.Sprintf("%s:2379", os.Getenv("ARGS_DOCKER_HOST")),
-		},
+		Endpoints:   args.StringToSlice(os.Getenv("ETCDCTL_ENDPOINTS")),
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
-		Fail(fmt.Sprintf("etcdApiFactory() - %s", err.Error()))
+		Fail(fmt.Sprintf("etcdV3ApiFactory() - %s", err.Error()))
 	}
 	return client
 }
@@ -92,7 +93,7 @@ func etcdPut(client *etcd.Client, root, key, value string) {
 	}
 }
 
-var _ = Describe("EtcdBackend", func() {
+var _ = Describe("V3Backend", func() {
 	var client *etcd.Client
 	var backend args.Backend
 	var etcdRoot string
@@ -101,7 +102,7 @@ var _ = Describe("EtcdBackend", func() {
 	BeforeEach(func() {
 		etcdRoot = newRootPath()
 		client = etcdClientFactory()
-		backend = backends.NewEtcdBackend(client, etcdRoot)
+		backend = argsetcd.NewV3Backend(client, etcdRoot)
 		log = NewTestLogger()
 	})
 
@@ -119,7 +120,7 @@ var _ = Describe("EtcdBackend", func() {
 			parser.SetLog(log)
 			parser.AddConfig("--bind")
 
-			etcdPut(client, etcdRoot, "/DEFAULT/bind", "thrawn01.org:3366")
+			etcdPut(client, etcdRoot, "/bind", "thrawn01.org:3366")
 			opts, err := parser.FromBackend(backend)
 			Expect(err).To(BeNil())
 			Expect(log.GetEntry()).To(Equal(""))

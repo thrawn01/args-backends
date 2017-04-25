@@ -1,10 +1,8 @@
-[![Coverage Status](https://img.shields.io/coveralls/thrawn01/args-backends.svg)](https://coveralls.io/github/thrawn01/args-backends)
-[![Build Status](https://img.shields.io/travis/thrawn01/args-backends/master.svg)](https://travis-ci.org/thrawn01/args-backends)
-
-**NOTE: This is alpha software, the api will continue to evolve**
+[![Coverage Status](https://img.shields.io/coveralls/thrawn01/args-etcd.svg)](https://coveralls.io/github/thrawn01/args-etcd)
+[![Build Status](https://img.shields.io/travis/thrawn01/args-etcd/master.svg)](https://travis-ci.org/thrawn01/args-etcd)
 
 ## Introduction
-This repo provides the key=value storage backends for use with
+This repo provides an etcd key=value storage backend for use with
  [args](http://github.com/thrawn01/args)
 
 ## Installation
