@@ -50,7 +50,7 @@ test: start-containers
 all: examples
 
 examples:
-	go install $(go list ./... | grep -v vendor)
+	go install $(shell go list ./... | grep -v vendor)
 
 travis-ci: glide-deps start-containers
 	go get -u github.com/mattn/goveralls
