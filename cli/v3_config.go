@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -12,27 +12,20 @@ import (
 
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"github.com/thrawn01/args"
-	"github.com/thrawn01/args-etcd"
+	"github.com/thrawn01/argsetcd"
 )
 
-func v3Config(parser *args.ArgParser, data interface{}) (int, error) {
-	parser.SetDesc(`example client and server for fetching simple config items from etcd`)
 
-	parser.AddCommand("set", v3ConfigSet).Help("Set config values in etcd")
-	parser.AddCommand("server", v3ConfigServer).Help("Start the config server")
-	return parser.ParseAndRun(nil, data)
-}
-
-func v3ConfigSet(parser *args.ArgParser, data interface{}) (int, error) {
-	parser.SetDesc(args.Dedent(`set config items in etcd for the server to pickup
+func V3ConfigSet(parser *args.Parser, data interface{}) (int, error) {
+	parser.Desc(args.Dedent(`set config items in etcd for the server to pickup
 
 	Examples:
 		$ args-etcd config set name "James Dean"
 		$ args-etcd config set age 12
 		$ args-etcd config set sex male
 		$ args-etcd config set config-version 1`))
-	parser.AddPositional("key").Required().Help("The key to set")
-	parser.AddPositional("value").Required().Help("The value to set")
+	parser.AddArgument("key").Required().Help("The key to set")
+	parser.AddArgument("value").Required().Help("The value to set")
 	opts := parser.ParseSimple(nil)
 	if opts == nil {
 		return 1, nil
@@ -67,7 +60,7 @@ func v3ConfigSet(parser *args.ArgParser, data interface{}) (int, error) {
 	return 0, nil
 }
 
-func addConfigOptions(parser *args.ArgParser) {
+func addConfigOptions(parser *args.Parser) {
 	parser.AddConfig("name").Help("The name of our user")
 	parser.AddConfig("age").IsInt().Help("The age of our user")
 	parser.AddConfig("sex").Help("The sex of our user")
@@ -75,9 +68,9 @@ func addConfigOptions(parser *args.ArgParser) {
 		Help("When version is changed, the service will update the config")
 }
 
-func v3ConfigServer(parser *args.ArgParser, data interface{}) (int, error) {
+func V3ConfigServer(parser *args.Parser, data interface{}) (int, error) {
 	// A Command line only option
-	parser.AddOption("--bind").Alias("-b").Default("localhost:1234").
+	parser.AddFlag("--bind").Alias("-b").Default("localhost:1234").
 		Help("Interface to bind the server too")
 
 	// Create some configuration items we can read from etcd

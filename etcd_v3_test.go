@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/pborman/uuid"
 	"github.com/thrawn01/args"
-	"github.com/thrawn01/args-etcd"
+	"github.com/thrawn01/argsetcd"
 	"golang.org/x/net/context"
 )
 

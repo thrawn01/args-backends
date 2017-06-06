@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"context"
@@ -10,22 +10,12 @@ import (
 
 	etcdv3 "github.com/coreos/etcd/clientv3"
 	"github.com/thrawn01/args"
-	"github.com/thrawn01/args-etcd"
+	"github.com/thrawn01/argsetcd"
 )
 
-func v3Endpoints(parser *args.ArgParser, data interface{}) (int, error) {
-	parser.SetDesc(args.Dedent(`
-	Example client and server for fetching unknown number of endpoints from etcd
-	`))
-	parser.AddCommand("server", v3EndpointsServer).Help("Start the endpoints server")
-	parser.AddCommand("add", Add).Help("Add an endpoint to the etcd store")
-	parser.AddCommand("delete", Delete).Help("Deletes an endpoint from the etcd store")
-	return parser.ParseAndRun(nil, data)
-}
-
-func Add(parser *args.ArgParser, data interface{}) (int, error) {
-	parser.AddPositional("name").Required().Help("The name of the new endpoint")
-	parser.AddPositional("url").Required().Help("The url of the new endpoint")
+func V3Add(parser *args.Parser, data interface{}) (int, error) {
+	parser.AddArgument("name").Required().Help("The name of the new endpoint")
+	parser.AddArgument("url").Required().Help("The url of the new endpoint")
 	opts := parser.ParseSimple(nil)
 	if opts == nil {
 		return 1, nil
@@ -45,8 +35,8 @@ func Add(parser *args.ArgParser, data interface{}) (int, error) {
 	return 0, nil
 }
 
-func Delete(parser *args.ArgParser, data interface{}) (int, error) {
-	parser.AddPositional("name").Required().Help("The name of the endpoint to delete")
+func V3Delete(parser *args.Parser, data interface{}) (int, error) {
+	parser.AddArgument("name").Required().Help("The name of the endpoint to delete")
 	opts := parser.ParseSimple(nil)
 	if opts == nil {
 		return 1, nil
@@ -65,8 +55,8 @@ func Delete(parser *args.ArgParser, data interface{}) (int, error) {
 	return 0, nil
 }
 
-func v3EndpointsServer(parser *args.ArgParser, data interface{}) (int, error) {
-	parser.AddOption("--bind").Alias("-b").Default("localhost:1234").
+func V3EndpointsServer(parser *args.Parser, data interface{}) (int, error) {
+	parser.AddFlag("--bind").Alias("-b").Default("localhost:1234").
 		Help("Interface to bind the server too")
 
 	// Create some configuration items we can read from ETCD

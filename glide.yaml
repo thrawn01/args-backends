@@ -1,4 +1,4 @@
-package: github.com/thrawn01/args-etcd
+package: github.com/thrawn01/argsetcd
 import:
     - package: github.com/coreos/etcd
       version: ^3.0.4
