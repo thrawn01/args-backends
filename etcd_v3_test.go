@@ -117,8 +117,8 @@ var _ = Describe("V3Backend", func() {
 			okToTestEtcd()
 
 			parser := args.NewParser()
-			parser.SetLog(log)
-			parser.AddConfig("--bind")
+			parser.Log(log)
+			parser.AddConfig("bind")
 
 			etcdPut(client, etcdRoot, "/bind", "thrawn01.org:3366")
 			opts, err := parser.FromBackend(backend)
@@ -130,7 +130,7 @@ var _ = Describe("V3Backend", func() {
 			okToTestEtcd()
 
 			parser := args.NewParser()
-			parser.SetLog(log)
+			parser.Log(log)
 			parser.AddConfigGroup("endpoints")
 
 			etcdPut(client, etcdRoot, "/endpoints/endpoint1", "http://endpoint1.com:3366")
@@ -157,8 +157,8 @@ var _ = Describe("V3Backend", func() {
 			okToTestEtcd()
 
 			parser := args.NewParser()
-			parser.SetLog(log)
-			parser.AddConfig("--bind")
+			parser.Log(log)
+			parser.AddConfig("bind")
 
 			etcdPut(client, etcdRoot, "/not-found", "foo")
 			opts, err := parser.FromBackend(backend)
@@ -172,7 +172,7 @@ var _ = Describe("V3Backend", func() {
 			okToTestEtcd()
 
 			parser := args.NewParser()
-			parser.SetLog(log)
+			parser.Log(log)
 			parser.AddConfigGroup("endpoints")
 
 			etcdPut(client, etcdRoot, "/endpoints/endpoint1", "http://endpoint1.com:3366")

@@ -2,7 +2,7 @@ package argsetcd
 
 import (
 	"fmt"
-	"path"
+	"strings"
 	"sync"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -10,6 +10,8 @@ import (
 	"github.com/thrawn01/args"
 	"golang.org/x/net/context"
 )
+
+var KeySeparator string = "/"
 
 type V3Backend struct {
 	Root       string
@@ -27,41 +29,49 @@ func NewV3Backend(client *etcd.Client, root string) args.Backend {
 }
 
 // Get retrieves a value from a K/V store for the provided key.
-func (s *V3Backend) Get(ctx context.Context, key string) (args.Pair, error) {
-	resp, err := s.Client.Get(ctx, key)
+func (s *V3Backend) Get(ctx context.Context, key args.Key) (args.Pair, error) {
+	etcdKey := fmt.Sprintf("%s%s%s", s.Root, KeySeparator, key.Join(KeySeparator))
+	resp, err := s.Client.Get(ctx, etcdKey)
 	if err != nil {
 		return args.Pair{}, err
 	}
 	if len(resp.Kvs) == 0 {
-		return args.Pair{}, errors.New(fmt.Sprintf("'%s' not found", key))
+		return args.Pair{}, errors.New(fmt.Sprintf("'%s' not found", etcdKey))
 	}
-	return args.Pair{Key: string(resp.Kvs[0].Key), Value: resp.Kvs[0].Value}, nil
+	return args.Pair{Key: key, Value: string(resp.Kvs[0].Value)}, nil
 }
 
 // List retrieves all keys and values under a provided key.
-func (s *V3Backend) List(ctx context.Context, key string) ([]args.Pair, error) {
-	resp, err := s.Client.Get(ctx, key, etcd.WithPrefix())
+func (s *V3Backend) List(ctx context.Context, key args.Key) ([]args.Pair, error) {
+	etcdKey := fmt.Sprintf("%s%s%s", s.Root, KeySeparator, key.Join(KeySeparator))
+	resp, err := s.Client.Get(ctx, etcdKey, etcd.WithPrefix())
 	if err != nil {
 		return nil, err
 	}
 	if len(resp.Kvs) == 0 {
-		return nil, errors.New(fmt.Sprintf("'%s' not found", key))
+		return nil, errors.New(fmt.Sprintf("%s not found", etcdKey))
 	}
 	result := make([]args.Pair, 0)
 	for _, node := range resp.Kvs {
-		result = append(result, args.Pair{Key: string(node.Key), Value: node.Value})
+		result = append(result, args.Pair{
+			Key: args.Key{
+				Group: key.Group,
+				Name:  baseName(string(node.Key)),
+			},
+			Value: string(node.Value),
+		})
 	}
 	return result, nil
 }
 
 // Set the provided key to value.
-func (s *V3Backend) Set(ctx context.Context, key string, value []byte) error {
+func (s *V3Backend) Set(ctx context.Context, key args.Key, value string) error {
 	return nil
 }
 
 // Watch monitors store for changes to key.
-func (s *V3Backend) Watch(ctx context.Context, key string) <-chan *args.ChangeEvent {
-	watchChan := s.Client.Watch(ctx, key, etcd.WithPrefix())
+func (s *V3Backend) Watch(ctx context.Context, root string) <-chan *args.ChangeEvent {
+	watchChan := s.Client.Watch(ctx, root, etcd.WithPrefix())
 	s.changeChan = make(chan *args.ChangeEvent)
 	s.done = make(chan struct{})
 
@@ -106,10 +116,17 @@ func (s *V3Backend) GetRootKey() string {
 }
 
 func NewChangeEvent(event *etcd.Event) *args.ChangeEvent {
+	// Given a key of `/root/group/key` separate the group and key
+	parts := strings.Split(string(event.Kv.Key), KeySeparator)
+	if len(parts) < 2 {
+		parts = []string{"key", "invalid-group", "invalid-key"}
+	}
 	return &args.ChangeEvent{
-		KeyName: path.Base(string(event.Kv.Key)),
-		Key:     string(event.Kv.Key),
-		Value:   event.Kv.Value,
+		Key: args.Key{
+			Name:  parts[len(parts)-1],
+			Group: parts[len(parts)-2],
+		},
+		Value:   string(event.Kv.Value),
 		Deleted: event.Type.String() == "DELETE",
 		Err:     nil,
 	}
@@ -119,4 +136,11 @@ func NewChangeError(err error) *args.ChangeEvent {
 	return &args.ChangeEvent{
 		Err: err,
 	}
+}
+
+func baseName(key string) string {
+	if i := strings.LastIndex(key, KeySeparator); i >= 0 {
+		return key[i+1:]
+	}
+	return key
 }
